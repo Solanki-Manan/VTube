@@ -1,12 +1,16 @@
-
+import express from "express";
 import dotenv from "dotenv";
-
+import userRouter from "./routes/user.routes.js";
 import connectDB from "./db/index.js";
-
+const app = express();
 dotenv.config({
     path: "./.env"
 });
+// 🔥 REQUIRED MIDDLEWARE
+app.use(express.json());
 
+// 🔥 ROUTE CONNECTION (THIS WAS MISSING)
+app.use("/api/v1/users", userRouter);
 connectDB()
 .then(()=>{
     app.listen(process.env.PORT || 8000,()=>{
