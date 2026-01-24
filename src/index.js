@@ -7,19 +7,22 @@ const app = express();
 import userRouter from "./routes/user.routes.js";
 import connectDB from "./db/index.js";
 
-// ✅ REQUIRED MIDDLEWARES
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // 🔥 THIS WAS MISSING
+import cookieParser from "cookie-parser";
 
-// ✅ ROUTES
+app.use(cookieParser());   // 👈 YE LINE ADD KARO
+
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.use("/api/v1/users", userRouter);
 
 connectDB()
-.then(() => {
-    app.listen(process.env.PORT || 8000, () => {
-        console.log(`Server is running on port ${process.env.PORT || 8000}`);
+    .then(() => {
+        app.listen(process.env.PORT || 8000, () => {
+            console.log(`Server is running on port ${process.env.PORT || 8000}`);
+        });
+    })
+    .catch((err) => {
+        console.log("Error in DB connection:", err);
     });
-})
-.catch((err) => {
-    console.log("Error in DB connection:", err);
-});
