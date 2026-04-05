@@ -6,7 +6,7 @@ import redis from "../queue/redis.connection.js";
 import { Video } from "../models/video.model.js";
 import fs from "fs";
 import mongoose from "mongoose";
-
+import { connection } from "../queue/queue.config.js";
 
 
 dotenv.config();
@@ -40,7 +40,10 @@ const videoWorker = new Worker("video-processing", async (job) => {
    }
 },
 {
-    connection: redis,
+    connection:{
+        url: process.env.REDIS_URI,
+        tls: {} //  required for Upstash
+    }
 }
 );
 
