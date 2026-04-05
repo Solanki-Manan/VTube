@@ -13,6 +13,8 @@ import {
   updateUserCoverImage
 } from "../controllers/user.controller.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
+import { authLimiter,apiLimiter } from "../middlewares/ratelimiter.middleware.js";
+
 import {upload} from "../middlewares/multer.middleware.js"
 import  cache  from '../middlewares/redis.middleware.js';
 const router = Router();
@@ -28,11 +30,12 @@ router.route("/register").post(
             maxCount: 1
         }
     ]),
+    authLimiter,
     registerUser
 )
 
 
-router.route("/login").post(loginUser)
+router.route("/login").post(authLimiter,loginUser)
 
 //secure routes
 router.route("/logout").post(verifyJWT,logoutUser)

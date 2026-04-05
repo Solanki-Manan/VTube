@@ -9,6 +9,7 @@ import{
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import  cache  from '../middlewares/redis.middleware.js';
+import { authLimiter,apiLimiter } from "../middlewares/ratelimiter.middleware.js";
 
 const router = Router();
 router.route("/publish").post(verifyJWT,upload.fields([
@@ -20,7 +21,7 @@ router.route("/publish").post(verifyJWT,upload.fields([
         name: "thumbnailfile",
         maxCount: 1
     }
-]), publishVideo )   
+]),apiLimiter, publishVideo )   
 
 router.route("/all").get(
     cache((req)=>'videos:all:${req.originalUrl}'),

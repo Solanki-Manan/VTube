@@ -1,10 +1,11 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import uploadOnCloudinary from "../utils/cloudinary.js"
 import {v2 as cloudinary} from "cloudinary"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
 import { Video } from "../models/video.model.js";
+import { addVideoToQueue } from "../queue/video.producer.js";
 
 import redis from "../utils/redis.js";
 
@@ -18,43 +19,38 @@ const publishVideo = asyncHandler(async (req, res) => {
     if (!title?.trim() || !description?.trim()) {
         throw new ApiError(400, "Title and description are required")
     }
-    const videolocalPath = req.files?.videofile?.[0]?.path
-    const thumbnaillocalPath = req.files?.thumbnailfile?.[0]?.path
-    if(!videolocalPath) {
+    const videoLocalPath = req.files?.videofile?.[0]?.path
+    const thumbnailLocalPath = req.files?.thumbnailfile?.[0]?.path
+    if(!videoLocalPath) {
         throw new ApiError(400, "Video file is required")
     }
-    if(!thumbnaillocalPath) {
+    if(!thumbnailLocalPath) {
         throw new ApiError(400, "Thumbnail file is required")
     }
 
-    const videofile=await uploadOnCloudinary(videolocalPath)
-    const thumbnailfile=await uploadOnCloudinary(thumbnaillocalPath)
-    if(!videofile) {
-        throw new ApiError(500, "Video upload failed")
-    }
-    if(!thumbnailfile) {
-        throw new ApiError(500, "Thumbnail upload failed")
-    }
-
+    //create video entry in db with ispublished false
     const video = await Video.create({
         title,
         description,
-        videofile: videofile.secure_url,
-        videofilepublicid: videofile.public_id,
-        thumbnailfile: thumbnailfile.secure_url,
-        thumbnailpublicid: thumbnailfile.public_id,
-        duration: videofile.duration,
         owner: req.user._id,
-        ispublished: true
+        videofile: "",
+        thumbnailfile: "",
+        videofilepublicid: "",
+        thumbnailpublicid: "",
+        thumbnailLocalPath:thumbnailLocalPath,
+        ispublished: false
     })
 
-    if(!video) {
-        throw new ApiError(500, "Failed to publish video")
-    }
+    //send video to processing queue
+    await addVideoToQueue({
+        videoId: video._id,
+        videoLocalPath,
+        thumbnailLocalPath
+    })
 
-    return res
-    .status(201)
-    .json(new ApiResponse(201,true, "Video published successfully"))
+    return res.status(202).json(
+        new ApiResponse(202, true, "Video is being processed...")
+    );
 
 })
 

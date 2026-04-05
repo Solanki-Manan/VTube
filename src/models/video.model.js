@@ -5,19 +5,19 @@ const videoSchema = new Schema(
   {
     videofile: {
       type: String,
-      required: true,
+      default: ""
     },
     videofilepublicid: {
       type: String,
-      required: true,
+       default: "" 
     },
     thumbnailfile: {
       type: String,
-      required: true,
+      default: ""
     },
     thumbnailpublicid: {
       type: String,
-      required: true,
+      default: ""
     },
     title: {
       type: String,
@@ -29,7 +29,7 @@ const videoSchema = new Schema(
     },
     duration: {
       type: Number,
-      required: true,
+      default: 0,
     },
     views: {
       type: Number,
