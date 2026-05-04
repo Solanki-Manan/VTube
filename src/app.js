@@ -2,8 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
-import redis from './utils/redis.js';
-
 const app=express();
 
 app.get("/", (req, res) => {
