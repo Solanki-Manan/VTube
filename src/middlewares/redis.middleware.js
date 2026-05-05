@@ -5,6 +5,7 @@ const cache = (keyGenerator, ttl = 300) => {
     try {
       const key = keyGenerator(req);
       const cachedData = await redisClient.get(key);
+
       if (cachedData) {
         const parsedData = JSON.parse(cachedData);
         console.log("Found in cache");
