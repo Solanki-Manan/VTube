@@ -31,6 +31,7 @@ const getUserTweets = asyncHandler(async (req, res) => {
     // TODO: get user tweets
     const ownerId = req.user._id
     const {page = 1, limit = 10} = req.query
+
     const tweets = await Tweet.find({owner:ownerId})
         .sort({createdAt:-1})
         .skip((page-1)*limit)
