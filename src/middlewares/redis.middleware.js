@@ -11,9 +11,11 @@ const cache=(keyGenerator,ttl=300) =>{
                 return res.status(parsedData.status || 200).json(parsedData);
             }
             const originalJson=res.json.bind(res);
-            res.json = (body) =>{
-                redisClient.setex(key,ttl,JSON.stringify(body));
-                return originalJson(body);
+            res.json = async (data) =>{
+                await redisClient.set(key, JSON.stringify(data), {
+                    EX: ttl
+                });
+                return originalJson(data);
             };
             next();
         }
