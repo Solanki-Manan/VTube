@@ -92,7 +92,7 @@ const getvideobyid = asyncHandler(async (req, res) => {
         if (!video) {
             throw new ApiError(404, "Video not found")
         }
-        video.views += 1
+        video.views = (video.views || 0) + 1;
         await video.save()
 
 

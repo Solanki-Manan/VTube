@@ -24,7 +24,7 @@ router.route("/publish").post(verifyJWT,upload.fields([
 ]),apiLimiter, publishVideo )   
 
 router.route("/all").get(
-    cache((req)=>'videos:all:${req.originalUrl}'),
+    cache((req)=>`videos:all:${req.originalUrl}`,300),
     getallvideos)
 
 router.route("/get/:id").get(
