@@ -3,6 +3,9 @@ import {
   registerUser,
   loginUser,
   logoutUser,
+  verifyEmail,
+  forgotPassword,
+  resetPassword,
   refreshAccessToken,
   updateAccountDetails,
   changeCurrentPassword,
@@ -17,6 +20,11 @@ import { authLimiter,apiLimiter } from "../middlewares/ratelimiter.middleware.js
 
 import {upload} from "../middlewares/multer.middleware.js"
 import  cache  from '../middlewares/redis.middleware.js';
+
+import { registerValidator, loginValidator } from '../validators/user.validator.js';
+import { validateimage,validatecoverimage } from '../middlewares/filevalidator.js';
+import { validateRequest } from '../middlewares/validate.js';
+
 const router = Router();
 
 router.route("/register").post(
@@ -30,12 +38,22 @@ router.route("/register").post(
             maxCount: 1
         }
     ]),
+    validateimage,
+    validatecoverimage,
+    registerValidator,
+    validateRequest,
     authLimiter,
     registerUser
 )
 
 
-router.route("/login").post(authLimiter,loginUser)
+router.route("/login").post(loginValidator, validateRequest, authLimiter, loginUser)
+
+router.route("/verify-email").post(apiLimiter, verifyEmail)
+
+router.route("/forgot-password").post(apiLimiter, forgotPassword)
+
+router.route("/reset-password").post(apiLimiter, resetPassword)
 
 //secure routes
 router.route("/logout").post(verifyJWT,logoutUser)

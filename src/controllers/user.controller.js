@@ -6,8 +6,8 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken"
 import mongoose from "mongoose";
 import redis from "../utils/redis.js";
-
-
+import bcrypt from "bcrypt";
+import { sendEmail } from "../utils/sendEmail.js";
 const generateAccessAndRefreshTokens = async (userId) => {
     try {
         const user = await User.findById(userId)
@@ -28,84 +28,124 @@ const generateAccessAndRefreshTokens = async (userId) => {
 }
 
 const registerUser = asyncHandler(async (req, res) => {
-    // get user details from frontend
-    // validation - not empty
-    // check if user already exists: username, email
-    // check for images, check for avatar
-    // upload them to cloudinary, avatar
-    // create user object - create entry in db
-    // remove password and refresh token field from response
-    // check for user creation
-    // return res
-    //sndk
-    
 
-    console.log("REQ FILES =", req.files);
-    console.log("REQ HEADERS =", req.headers["content-type"]);
+    const { fullName, email, username, password } = req.body;
 
-
-
-    const { fullName, email, username, password } = req.body
-    //console.log("email: ", email);
+    const emailNormalized = email?.toLowerCase().trim();
+    const usernameNormalized = username?.toLowerCase().trim();
+    const fullNameTrimmed = fullName?.trim();
 
     if (
-        [fullName, email, username, password].some((field) => field?.trim() === "")
+        [fullNameTrimmed, emailNormalized, usernameNormalized, password]
+            .some((field) => !field)
     ) {
-        throw new ApiError(400, "All fields are required")
+        throw new ApiError(400, "All fields are required");
     }
 
     const existedUser = await User.findOne({
-        $or: [{ username }, { email }]
-    })
+        $or: [
+            { username: usernameNormalized },
+            { email: emailNormalized }
+        ]
+    });
 
     if (existedUser) {
-        throw new ApiError(409, "User with email or username already exists")
+        throw new ApiError(409, "User already exists");
     }
-    // console.log(req.files);
 
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    //const coverImageLocalPath = req.files?.coverImage[0]?.path;
-
+    const avatarLocalPath = req.files?.avatar?.[0]?.path;
     const coverImageLocalPath = req.files?.coverImage?.[0]?.path;
 
-
     if (!avatarLocalPath) {
-        throw new ApiError(400, "Avatar file is required")
-    }
-    if(coverImageLocalPath === undefined){
-        console.log("Cover image file is not provided, proceeding without it.");
+        throw new ApiError(400, "Avatar file is required");
     }
 
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
 
     if (!avatar) {
-        throw new ApiError(400, "Avatar file is required")
+        throw new ApiError(400, "Error uploading avatar");
     }
 
+    let coverImage;
+    if (coverImageLocalPath) {
+        coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    }
+
+    // 🔐 Generate & hash OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOTP = await bcrypt.hash(otp, 10);
+    console.log("Generated OTP (for testing):", otp);
 
     const user = await User.create({
-        fullName,
+        fullName: fullNameTrimmed,
+        email: emailNormalized,
+        username: usernameNormalized,
+        password,
         avatar: avatar.url,
         coverImage: coverImage?.url || "",
-        email,
-        password,
-        username: username.toLowerCase()
-    })
+        emailOTP: hashedOTP,
+        emailOTPExpiry: Date.now() + 10 * 60 * 1000,
+    });
 
-    const createdUser = await User.findById(user._id).select(
-        "-password -refreshToken"
-    )
-
-    if (!createdUser) {
-        throw new ApiError(500, "Something went wrong while registering the user")
+    //  Send email safely
+    try {
+        await sendEmail(
+            emailNormalized,
+            "Verify your email",
+            `Your OTP is ${otp}`
+        );
+    } catch (error) {
+        console.log("Email failed:", error.message);
     }
 
-    return res.status(201).json(
-        new ApiResponse(200, createdUser, "User registered Successfully")
-    )
+    const createdUser = await User.findById(user._id)
+        .select("-password -refreshToken");
 
-})
+    return res.status(201).json(
+        new ApiResponse(200, createdUser, "User registered. Please verify email.")
+    );
+});
+
+
+const verifyEmail = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+
+    const emailNormalized = email?.toLowerCase().trim();
+
+    const user = await User.findOne({ email: emailNormalized });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+
+    if (user.isVerified) {
+        throw new ApiError(400, "Email already verified");
+    }
+
+    // 🔐 Check OTP expiry
+    if (user.emailOTPExpiry < Date.now()) {
+        throw new ApiError(400, "OTP expired");
+    }
+
+    // 🔐 Compare hashed OTP
+    const isOTPValid = await bcrypt.compare(otp, user.emailOTP);
+
+    if (!isOTPValid) {
+        throw new ApiError(400, "Invalid OTP");
+    }
+
+    // Mark verified
+    user.isVerified = true;
+    user.emailOTP = undefined;
+    user.emailOTPExpiry = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+        success: true,
+        message: "Email verified successfully"
+    });
+});
 
 const loginUser = asyncHandler(async (req, res) => {
     //req body->data
@@ -128,6 +168,11 @@ const loginUser = asyncHandler(async (req, res) => {
 
     if (!user) {
         throw new ApiError(404, "User not found")
+    }
+
+
+    if (!user.isVerified) {
+        throw new ApiError(403, "Please verify your email first");
     }
 
     const ispasswordvalid = await user.isPasswordCorrect(password)
@@ -163,6 +208,61 @@ const loginUser = asyncHandler(async (req, res) => {
         )
 
 
+})
+
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    const emailNormalized = email?.toLowerCase().trim();
+
+    const user = await User.findOne({ email: emailNormalized });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOTP = await bcrypt.hash(otp, 10);
+    console.log("Generated OTP (for testing):", otp);
+    user.resetpasswordOTP = hashedOTP;
+    user.resetpasswordOTPExpiry = Date.now() + 10 * 60 * 1000;
+    await user.save({ validateBeforeSave: false });
+    await sendEmail(
+        emailNormalized,
+        "Reset your password",
+        `Your OTP for password reset is ${otp}`
+    );
+    return res.status(200).json({
+        success: true,
+        message: "OTP sent to email for password reset"
+    })
+})
+
+const resetPassword = asyncHandler(async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+
+    const emailNormalized = email?.toLowerCase().trim();
+
+    const user = await User.findOne({ email: emailNormalized });
+
+    if (!user) {
+        throw new ApiError(404, "User not found");
+    }
+    if (user.resetpasswordOTPExpiry < Date.now()) {
+        throw new ApiError(400, "OTP expired");
+    }
+    const isOTPValid = await bcrypt.compare(otp, user.resetpasswordOTP);
+
+    if (!isOTPValid) {
+        throw new ApiError(400, "Invalid OTP");
+    }
+    user.password = newPassword;
+    user.resetpasswordOTP = undefined;
+    user.resetpasswordOTPExpiry = undefined;
+    await user.save();
+    return res.status(200).json({
+        success: true,
+        message: "Password reset successfully"
+    })
 })
 
 const logoutUser = asyncHandler(async (req, res) => {
@@ -215,17 +315,19 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     if (!user) {
         throw new ApiError(401, "Invalid Refresh Token")
     }
-
+    //IMPORTANT CHECK (ANTI-REUSE)
     if (incomingRefreshToken !== user?.refreshToken) {
         throw new ApiError(401, "Refresh Token is expired or used")
     }
+    
+    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
 
     const options = {
         httpOnly: true,
-        secure: true,
-    }
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict"
+    };
 
-    const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
 
     return res
         .status(200)
@@ -464,6 +566,9 @@ export {
     registerUser,
     loginUser,
     logoutUser,
+    verifyEmail,
+    forgotPassword,
+    resetPassword,
     refreshAccessToken,
     changeCurrentPassword,
     getCurrentUser,

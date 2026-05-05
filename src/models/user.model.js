@@ -43,7 +43,15 @@ const userSchema=new Schema(
         },
         refreshToken:{
             type:String,
-        }
+        },
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
+        emailOTP: String,
+        emailOTPExpiry: Date,
+        resetpasswordOTP: String,
+        resetpasswordOTPExpiry: Date,
 },
 {
     timestamps:true,
