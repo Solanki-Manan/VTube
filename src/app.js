@@ -7,21 +7,23 @@ import swaggerUi from 'swagger-ui-express';
 import swaggerSpec from './utils/swagger.js';
 
 import morgan from "morgan";
-
+import { apiLimiter } from "./middlewares/ratelimiter.middleware.js";
 const app=express();
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 app.use(helmet()) // for setting various HTTP headers for security
+app.use(apiLimiter);
 
 app.use(cors({
     origin: process.env.CORS_ORIGIN,
     credentials: true,
 }))
 
-app.use(morgan("dev"));
+app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 
 app.use(express.json({limit : "16kb"}))
 app.use(express.urlencoded({extended:true,limit:"16kb"}))
+
 app.use(express.static("public"))
 app.use(cookieParser())
 
@@ -71,8 +73,11 @@ app.use((err, req, res, next) => {
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
         success: false,
-        message: err.message || "Internal Server Error",
-        errors: err.errors || []
+        message: statusCode === 500 && process.env.NODE_ENV === "production" 
+            ? "Internal Server Error" 
+            : err.message,
+        errors: err.errors || [],
+        ...(process.env.NODE_ENV === "development" && { stack: err.stack })
     });
 });
 

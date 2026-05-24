@@ -6,11 +6,11 @@ const router = Router()
 
 router.get("/channelstats/:userid", 
     verifyJWT, 
-    cache((req)=>`dashboardstats:${req.params.userid}`,300),
+    cache((req)=>`dashboardstats:${req.params.userid}`, 5),
     getChannelStats)
 router.get("/channelvideos/:userid", 
     verifyJWT, 
-    cache((req)=>`channelvideos:${req.params.userid}:${req.query.page || 1}`,300),
+    cache((req)=>`channelvideos:${req.params.userid}:${req.query.page || 1}`, 5),
     getChannelVideos)
 
 export default router

@@ -74,7 +74,6 @@ const registerUser = asyncHandler(async (req, res) => {
     // 🔐 Generate & hash OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
-    console.log("Generated OTP (for testing):", otp);
 
     const user = await User.create({
         fullName: fullNameTrimmed,
@@ -154,8 +153,6 @@ const loginUser = asyncHandler(async (req, res) => {
     //password check
     //access & refresh token
     //send cookie
-    // console.log(".....");
-
     const { email, username, password } = req.body
 
     if (!(username || email)) {
@@ -171,14 +168,14 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
 
-    if (!user.isVerified) {
-        throw new ApiError(403, "Please verify your email first");
-    }
-
     const ispasswordvalid = await user.isPasswordCorrect(password)
 
     if (!ispasswordvalid) {
         throw new ApiError(401, "Invalid credentials")
+    }
+
+    if (!user.isVerified) {
+        throw new ApiError(403, "Please verify your email first");
     }
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id)
@@ -188,6 +185,7 @@ const loginUser = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     }
 
     return res
@@ -221,7 +219,6 @@ const forgotPassword = asyncHandler(async (req, res) => {
     }
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
-    console.log("Generated OTP (for testing):", otp);
     user.resetpasswordOTP = hashedOTP;
     user.resetpasswordOTPExpiry = Date.now() + 10 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
@@ -257,6 +254,7 @@ const resetPassword = asyncHandler(async (req, res) => {
     user.password = newPassword;
     user.resetpasswordOTP = undefined;
     user.resetpasswordOTPExpiry = undefined;
+    user.isVerified = true; // They proved they own the email by receiving the reset OTP!
     await user.save();
     return res.status(200).json({
         success: true,
@@ -280,6 +278,7 @@ const logoutUser = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     }
 
     return res
@@ -324,7 +323,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const options = {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "lax"
     };
 
 
@@ -606,7 +605,6 @@ const resendVerificationOtp = asyncHandler(async (req, res) => {
     // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedOTP = await bcrypt.hash(otp, 10);
-    console.log("Resent OTP (for testing):", otp);
 
     user.emailOTP = hashedOTP;
     user.emailOTPExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes

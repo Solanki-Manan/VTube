@@ -14,18 +14,20 @@ export const apiLimiter=rateLimit({
     store:new RedisStore({
         sendCommand: (...args) => redisclient.call(...args)
     }),
-    windowMs: 15*60*1000, 
-    max: 100, 
-    message:"Too many requests from this IP, please try again after 15 minutes"
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Max 100 requests per 15 minutes for general APIs
+    message: "Too many requests from this IP, please try again after 15 minutes"
 })  
 
 
 //for auth related apis (login, register, verify-email etc.)
-export const authLimiter=rateLimit({
-    store:new RedisStore({
+export const authLimiter = rateLimit({
+    store: new RedisStore({
         sendCommand: (...args) => redisclient.call(...args)
     }),
-    windowMs: 15*60*1000, // 15 minutes
-    max: 50, // Increased for development - lower this to 5-10 in production
-    message:"Too many login attempts from this IP, please try again after 15 minutes"
-})
+    windowMs: 15 * 60 * 1000, // 15 minutes window
+    max: 50, // Increased to 50 for easier testing
+    message: "Too many login/registration attempts from this IP, please try again after 15 minutes",
+    standardHeaders: true,
+    legacyHeaders: false,
+});

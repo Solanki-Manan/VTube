@@ -81,8 +81,6 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     }
     //owner check
 
-    // console.log("Playlist owner:", playlist.owner.toString())
-    // console.log("Current user ID:", userId.toString())
     if (playlist.owner.toString() !== req.user._id.toString()) {
         throw new ApiError(403, "You are not the owner of this playlist")
     }
@@ -111,8 +109,6 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     if (!playlist) {
         throw new ApiError(404, "Playlist not found")
     }
-    // console.log("req.user:", req.user)
-    // console.log("playlist:", playlist)
     //owner check
     if (playlist.owner.toString() !== req.user._id.toString()) {
         throw new ApiError(403, "You are not the owner of this playlist")

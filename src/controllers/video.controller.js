@@ -11,8 +11,6 @@ import redis from "../utils/redis.js";
 
 
 const publishVideo = asyncHandler(async (req, res) => {
-    //console.log("REQ BODY =", req.body)       //  add this----e bhale ha
-    //console.log("REQ FILES =", req.files)     //  add this----ho
     const { title, description } = req.body
 
 
@@ -102,12 +100,15 @@ const getvideobyid = asyncHandler(async (req, res) => {
         }
 
 
-        const video = await Video.findById(id).populate("owner", "fullName username email avatar")
+        const video = await Video.findByIdAndUpdate(
+            id,
+            { $inc: { views: 1 } },
+            { new: true }
+        ).populate("owner", "fullName username email avatar");
+
         if (!video) {
             throw new ApiError(404, "Video not found")
         }
-        video.views = (video.views || 0) + 1;
-        await video.save()
 
 
         return res
@@ -160,9 +161,6 @@ const deletevideo=asyncHandler(async (req, res) => {
         if(video.owner.toString() !== req.user._id.toString()){
             throw new ApiError(403, "You are not authorized to delete this video")
         }
-
-        console.log("Video Public ID:", video.videofilepublicid)
-        console.log("Thumbnail Public ID:", video.thumbnailpublicid)
 
         await cloudinary.uploader.destroy(video.videofilepublicid, {
         resource_type: "video"

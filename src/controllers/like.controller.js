@@ -84,6 +84,10 @@ const toggletweetlike=asyncHandler(async(req,res)=>{
     })
     if(existinglike){
         await existinglike.deleteOne();
+        await redis.del(`totallikesoftweet:${tweetid}`);
+        const keys = await redis.keys(`usertweets:${tweet.owner}:*`);
+        if (keys.length) await redis.del(keys);
+        
         return res
         .status(200)
         .json(new ApiResponse(200,true,"Tweet unliked successfully"))
@@ -92,7 +96,10 @@ const toggletweetlike=asyncHandler(async(req,res)=>{
         tweet:tweetid,
         likedBy:req.user._id
     })
-    await redis.del(`totallikesoftweet:${tweetid}`);    
+    await redis.del(`totallikesoftweet:${tweetid}`);
+    const keys = await redis.keys(`usertweets:${tweet.owner}:*`);
+    if (keys.length) await redis.del(keys);
+    
     return res
         .status(200)
         .json(new ApiResponse(200,like,"Tweet liked successfully"))

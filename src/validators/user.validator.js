@@ -18,8 +18,8 @@ export const registerValidator = [
 
   body("password")
     .trim()
-    .isStrongPassword({ minLength: 6, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 0 })
-    .withMessage("Password must be at least 6 characters,with at least 1 uppercase, 1 lowercase, and 1 number"),
+    .isStrongPassword({ minLength: 8, minLowercase: 1, minUppercase: 1, minNumbers: 1, minSymbols: 0 })
+    .withMessage("Password must be at least 8 characters, with at least 1 uppercase letter, 1 lowercase letter, and 1 number"),
 ];
 
 export const loginValidator = [
