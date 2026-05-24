@@ -14,7 +14,7 @@ export const apiLimiter=rateLimit({
     store:new RedisStore({
         sendCommand: (...args) => redisclient.call(...args)
     }),
-    windowMs: 15 * 60 * 1000, // 15 minutes
+    windowMs: 10 * 60 * 1000, // 10 minutes
     max: 1500, // Max 1500 requests per 15 minutes for general APIs
     message: "Too many requests from this IP, please try again after 15 minutes"
 })  
