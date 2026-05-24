@@ -11,6 +11,8 @@ import { apiLimiter } from "./middlewares/ratelimiter.middleware.js";
 const app=express();
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec))
+
+app.set("trust proxy", 1); // Trust the first proxy (Render load balancer)
 app.use(helmet()) // for setting various HTTP headers for security
 app.use(apiLimiter);
 

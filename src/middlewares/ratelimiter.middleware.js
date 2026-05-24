@@ -15,7 +15,7 @@ export const apiLimiter=rateLimit({
         sendCommand: (...args) => redisclient.call(...args)
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Max 100 requests per 15 minutes for general APIs
+    max: 1500, // Max 1500 requests per 15 minutes for general APIs
     message: "Too many requests from this IP, please try again after 15 minutes"
 })  
 
@@ -26,7 +26,7 @@ export const authLimiter = rateLimit({
         sendCommand: (...args) => redisclient.call(...args)
     }),
     windowMs: 15 * 60 * 1000, // 15 minutes window
-    max: 50, // Increased to 50 for easier testing
+    max: 100, // Increased to 100 for easier testing
     message: "Too many login/registration attempts from this IP, please try again after 15 minutes",
     standardHeaders: true,
     legacyHeaders: false,
