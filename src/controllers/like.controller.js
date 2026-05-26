@@ -2,10 +2,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 import { Video } from "../models/video.model.js";
-import {Like} from "../models/like.model.js"
+import { Like } from "../models/like.model.js";
+import { Dislike } from "../models/dislike.model.js";
 import { Comment } from "../models/comments.model.js";
 import { Tweet } from "../models/tweet.model.js";
+import { User } from "../models/user.model.js";
 import redis from "../utils/redis.js";
 const togglevideolike= asyncHandler(async(req,res)=>{
     const {videoid}=req.params;
@@ -106,8 +109,6 @@ const toggletweetlike=asyncHandler(async(req,res)=>{
 })
 
 
-import jwt from "jsonwebtoken";
-import { User } from "../models/user.model.js";
 
 const totallikesofvideo=asyncHandler(async(req,res)=>{
     const {videoid}=req.params;
@@ -226,6 +227,61 @@ const getLikedVideos = asyncHandler(async(req, res) => {
     return res.status(200).json(new ApiResponse(200, likedVideos, "Liked videos fetched successfully"));
 });
 
+const toggleVideoDislike = asyncHandler(async (req, res) => {
+    const { videoid } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(videoid)) {
+        throw new ApiError(400, "Invalid video id");
+    }
+    const video = await Video.findById(videoid);
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
+
+    const existingDislike = await Dislike.findOne({
+        video: videoid,
+        dislikedBy: req.user._id
+    });
+
+    if (existingDislike) {
+        // Remove dislike
+        await existingDislike.deleteOne();
+        return res.status(200).json(new ApiResponse(200, { isDisliked: false }, "Dislike removed"));
+    }
+
+    // Add dislike — also remove any existing LIKE (can't like + dislike simultaneously)
+    await Like.deleteOne({ video: videoid, likedBy: req.user._id });
+    await redis.del(`totallikesofvideo:${videoid}`);
+
+    await Dislike.create({ video: videoid, dislikedBy: req.user._id });
+
+    return res.status(200).json(new ApiResponse(200, { isDisliked: true }, "Video disliked"));
+});
+
+const getVideoDislikeStatus = asyncHandler(async (req, res) => {
+    const { videoid } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(videoid)) {
+        throw new ApiError(400, "Invalid video id");
+    }
+
+    // Always return the total dislike count
+    const totalDislikes = await Dislike.countDocuments({ video: videoid });
+
+    let isDisliked = false;
+    const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "");
+    if (token) {
+        try {
+            const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+            const user = await User.findById(decodedToken?._id);
+            if (user) {
+                const existing = await Dislike.findOne({ video: videoid, dislikedBy: user._id });
+                if (existing) isDisliked = true;
+            }
+        } catch (err) { /* optional auth */ }
+    }
+
+    return res.status(200).json(new ApiResponse(200, { isDisliked, totalDislikes }, "Dislike status fetched"));
+});
+
 export {
     togglevideolike,
     totallikesofvideo,
@@ -233,6 +289,8 @@ export {
     toggletweetlike,
     totallikesofcomment,
     totallikesoftweet,
-    getLikedVideos
+    getLikedVideos,
+    toggleVideoDislike,
+    getVideoDislikeStatus
 }
 

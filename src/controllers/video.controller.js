@@ -99,7 +99,6 @@ const getvideobyid = asyncHandler(async (req, res) => {
             throw new ApiError(400, "Invalid video ID")
         }
 
-        // First fetch the video without incrementing to check published status
         const video = await Video.findById(id).populate("owner", "fullName username email avatar");
 
         if (!video) {
@@ -110,16 +109,41 @@ const getvideobyid = asyncHandler(async (req, res) => {
             throw new ApiError(403, "This video is not yet available")
         }
 
-        // Use a Redis key per IP + videoId to prevent view count spam (24hr lock)
-        const viewerIp = req.ip || req.connection?.remoteAddress || 'unknown';
-        const viewLockKey = `viewlock:${viewerIp}:${id}`;
-        const alreadyViewed = await redis.get(viewLockKey);
+        // Build a unique viewer key:
+        // - For logged-in users: use their userId (most reliable)
+        // - For guests: fall back to IP address
+        let viewerKey;
+        try {
+            const authHeader = req.header("Authorization");
+            const token = req.cookies?.accessToken || authHeader?.replace("Bearer ", "");
+            if (token) {
+                const jwt = (await import("jsonwebtoken")).default;
+                const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+                viewerKey = `user:${decoded._id}`;
+            }
+        } catch { /* not logged in */ }
 
-        if (!alreadyViewed) {
-            // First view in 24hrs — increment and set lock
-            await Video.findByIdAndUpdate(id, { $inc: { views: 1 } });
-            await redis.set(viewLockKey, '1', 'EX', 86400); // 24 hours TTL
-            video.views = video.views + 1; // Update local copy for response
+        if (!viewerKey) {
+            const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+            viewerKey = `ip:${ip}`;
+        }
+
+        const viewLockKey = `viewlock:${viewerKey}:${id}`;
+        const lockTTL = process.env.NODE_ENV === "production" ? 86400 : 3600; // 24h prod, 1h dev
+
+        try {
+            const alreadyViewed = await redis.get(viewLockKey);
+            if (!alreadyViewed) {
+                await Video.findByIdAndUpdate(id, { $inc: { views: 1 } });
+                await redis.set(viewLockKey, '1', 'EX', lockTTL);
+                video.views = video.views + 1; // Update local copy for response
+            }
+        } catch (redisErr) {
+            // Redis failure should never block a video from loading
+            // Just increment the view without the dedup lock
+            console.error("Redis viewlock error (non-fatal):", redisErr.message);
+            await Video.findByIdAndUpdate(id, { $inc: { views: 1 } }).catch(() => {});
+            video.views = video.views + 1;
         }
 
         return res

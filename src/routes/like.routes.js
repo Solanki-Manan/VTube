@@ -1,12 +1,6 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { togglevideolike } from "../controllers/like.controller.js";
-import { togglecommentlike } from "../controllers/like.controller.js";
-import { toggletweetlike } from "../controllers/like.controller.js";
-import { totallikesofvideo } from "../controllers/like.controller.js";
-import { totallikesofcomment } from "../controllers/like.controller.js";
-import { totallikesoftweet } from "../controllers/like.controller.js";
-import { getLikedVideos } from "../controllers/like.controller.js";
+import { togglevideolike, togglecommentlike, toggletweetlike, totallikesofvideo, totallikesofcomment, totallikesoftweet, getLikedVideos, toggleVideoDislike, getVideoDislikeStatus } from "../controllers/like.controller.js";
 import cache from "../middlewares/redis.middleware.js";
 const router = Router();
 
@@ -29,5 +23,9 @@ router.route("/totallikesoftweet/:tweetid").get(
 )
 
 router.route("/videos").get(verifyJWT, getLikedVideos)
+
+// Dislike routes
+router.route("/togglevideodislike/:videoid").post(verifyJWT, toggleVideoDislike)
+router.route("/dislikestatus/:videoid").get(getVideoDislikeStatus)
 
 export default router;
