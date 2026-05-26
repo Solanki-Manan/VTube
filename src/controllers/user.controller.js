@@ -71,8 +71,8 @@ const registerUser = asyncHandler(async (req, res) => {
         coverImage = await uploadOnCloudinary(coverImageLocalPath);
     }
 
-    // 🔐 Generate & hash OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // 🔐 Generate & hash OTP (HARDCODED FOR TESTING)
+    const otp = "123456";
     const hashedOTP = await bcrypt.hash(otp, 10);
 
     const user = await User.create({
@@ -217,7 +217,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
     if (!user) {
         throw new ApiError(404, "User not found");
     }
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = "123456"; // HARDCODED FOR TESTING
     const hashedOTP = await bcrypt.hash(otp, 10);
     user.resetpasswordOTP = hashedOTP;
     user.resetpasswordOTPExpiry = Date.now() + 10 * 60 * 1000;
@@ -608,8 +608,8 @@ const resendVerificationOtp = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Email is already verified");
     }
 
-    // Generate new OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    const otp = "123456";
     const hashedOTP = await bcrypt.hash(otp, 10);
 
     user.emailOTP = hashedOTP;
